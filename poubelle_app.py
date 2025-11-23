@@ -11,6 +11,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import pandas as pd
 import time
+import plotly.express as px
 
 # -----------------------
 # Config Streamlit
@@ -115,11 +116,10 @@ def send_email_alert(subject, body, recipient):
         st.warning(f"Impossible d'envoyer l'email: {e}")
 
 # -----------------------
-# CSS moderne + animations
+# CSS moderne
 # -----------------------
 st.markdown("""
 <style>
-/* Header fixe */
 .header {
     background: linear-gradient(90deg, #1E3C72, #2A5298);
     padding: 25px;
@@ -129,7 +129,6 @@ st.markdown("""
     font-family: 'Arial', sans-serif;
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
-/* Cards */
 .card {
     background-color: #ffffff;
     border-radius: 15px;
@@ -140,8 +139,8 @@ st.markdown("""
     transition: transform 0.2s;
 }
 .card:hover { transform: translateY(-5px);}
-.alert-red { background-color: #FF4B4B; color: white; padding: 12px; border-radius: 10px; font-weight: bold; margin: 10px 0; text-align:center;}
-.alert-green { background-color: #4BB543; color: white; padding: 12px; border-radius: 10px; font-weight: bold; margin: 10px 0; text-align:center;}
+.alert-red { background-color: #0077b6; color: white; padding: 12px; border-radius: 10px; font-weight: bold; margin: 10px 0; text-align:center;}
+.alert-green { background-color: #00b4d8; color: white; padding: 12px; border-radius: 10px; font-weight: bold; margin: 10px 0; text-align:center;}
 .footer {
     text-align: center;
     padding: 15px;
@@ -150,32 +149,21 @@ st.markdown("""
     color: #555;
     font-size: 14px;
 }
-.spinner {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------
-# Navigation style Flask avec icônes
+# Layout en colonnes pour interface type Flask
 # -----------------------
-tabs = ["🏠 Accueil", "📤 Upload", "📝 Historique", "📊 Statistiques", "⬇️ Télécharger modèle"]
-active_tab = st.tabs(tabs)
-tab_accueil, tab_upload, tab_hist, tab_stats, tab_model = active_tab
-
-# -----------------------
-# Accueil
-# -----------------------
-with tab_accueil:
+with st.container():
     st.markdown('<div class="header"><h1>🗑️ SmartBin Pro</h1><p>Détection intelligente des poubelles pleines et vides</p></div>', unsafe_allow_html=True)
-    st.write("Bienvenue sur l'application SmartBin Poubelles. Utilisez les onglets pour naviguer entre les sections.")
+
+col1, col2 = st.columns([2,1])
 
 # -----------------------
-# Upload avec spinner
+# Colonne gauche: Upload + Prévisualisation
 # -----------------------
-with tab_upload:
+with col1:
     st.subheader("📤 Upload images ou vidéos")
     uploaded_files = st.file_uploader(
         "Sélectionnez vos fichiers", accept_multiple_files=True, type=["jpg","jpeg","png","mp4"]
@@ -189,85 +177,82 @@ with tab_upload:
                 out.write(f.read())
             
             with st.spinner(f"Analyse de {f.name} ..."):
-                time.sleep(0.5)  # effet de chargement
+                time.sleep(0.5)
                 if f.type.startswith("image"):
                     cls, conf = predict_image_file(path)
-                    ftype = "Image"
                     st.image(path, caption=f.name, use_column_width=True)
                 elif f.type.startswith("video"):
                     cls, conf = predict_video_file(path)
-                    ftype = "Vidéo"
                     st.video(path)
                 else:
                     continue
 
                 st.session_state.history.append({
                     "filename": f.name,
-                    "type": ftype,
+                    "type": "Image" if f.type.startswith("image") else "Vidéo",
                     "result": cls,
                     "confidence": conf,
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 })
 
-                if cls == "poubelle_pleine":
-                    st.markdown(f'<div class="alert-red">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
-                    if recipient_email:
-                        send_email_alert(
-                            "Alerte SmartBin: Poubelle pleine",
-                            f"La poubelle est pleine pour le fichier {f.name} (confiance {conf*100:.1f}%)",
-                            recipient_email
-                        )
-                else:
-                    st.markdown(f'<div class="alert-green">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
+                color_class = "alert-red" if cls=="poubelle_pleine" else "alert-green"
+                st.markdown(f'<div class="{color_class}">{f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
+
+                if cls=="poubelle_pleine" and recipient_email:
+                    send_email_alert("Alerte SmartBin: Poubelle pleine",
+                                     f"La poubelle est pleine pour le fichier {f.name} (confiance {conf*100:.1f}%)",
+                                     recipient_email)
 
 # -----------------------
-# Historique
+# Colonne droite: Statistiques
 # -----------------------
-with tab_hist:
-    st.subheader("📝 Historique")
-    if st.session_state.history:
-        df = pd.DataFrame(st.session_state.history)
-        df["Confidence"] = df["confidence"].apply(lambda x: f"{x*100:.1f}%")
-        df = df.rename(columns={"filename":"Fichier","type":"Type","result":"Résultat","timestamp":"Horodatage"})
-        st.dataframe(df[["Horodatage","Type","Fichier","Résultat","Confidence"]].sort_values(by="Horodatage", ascending=False), use_container_width=True)
-    else:
-        st.info("Aucun fichier traité pour le moment.")
-
-# -----------------------
-# Statistiques
-# -----------------------
-with tab_stats:
-    st.subheader("📊 Statistiques")
+with col2:
+    st.subheader("📊 Statistiques globales")
     if st.session_state.history:
         df = pd.DataFrame(st.session_state.history)
         total = len(df)
         pleines = df[df["result"]=="poubelle_pleine"].shape[0]
         vides = total - pleines
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total fichiers", total)
-        col2.metric("Poubelles Pleines", pleines)
-        col3.metric("Poubelles Vides", vides)
+
+        # Graphique circulaire
+        fig = px.pie(names=["Poubelles Pleines","Poubelles Vides"], values=[pleines, vides],
+                     color_discrete_sequence=["#0077b6","#00b4d8"])
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Graphique en barres
+        count_by_type = df.groupby("type")["filename"].count().reset_index()
+        fig2 = px.bar(count_by_type, x="type", y="filename", color="type", 
+                      color_discrete_sequence=["#0077b6","#00b4d8"], labels={"filename":"Nombre de fichiers"})
+        st.plotly_chart(fig2, use_container_width=True)
     else:
         st.info("Aucun fichier traité pour le moment.")
 
 # -----------------------
 # Télécharger modèle
 # -----------------------
-with tab_model:
-    st.subheader("⬇️ Télécharger le modèle")
-    if os.path.exists(MODEL_FILENAME):
-        with open(MODEL_FILENAME, "rb") as f:
-            model_bytes = f.read()
-        st.download_button(
-            label="Télécharger le modèle",
-            data=model_bytes,
-            file_name="model_MobileNetV2.h5",
-            mime="application/octet-stream"
-        )
-    else:
-        st.warning("Le fichier modèle n'existe pas.")
+st.subheader("⬇️ Télécharger le modèle")
+if os.path.exists(MODEL_FILENAME):
+    with open(MODEL_FILENAME, "rb") as f:
+        model_bytes = f.read()
+    st.download_button(
+        label="Télécharger le modèle",
+        data=model_bytes,
+        file_name="model_MobileNetV2.h5",
+        mime="application/octet-stream"
+    )
+else:
+    st.warning("Le fichier modèle n'existe pas.")
 
 # -----------------------
-# Footer
+# Historique complet
 # -----------------------
+st.subheader("📝 Historique complet")
+if st.session_state.history:
+    df_hist = pd.DataFrame(st.session_state.history)
+    df_hist["Confidence"] = df_hist["confidence"].apply(lambda x: f"{x*100:.1f}%")
+    df_hist = df_hist.rename(columns={"filename":"Fichier","type":"Type","result":"Résultat","timestamp":"Horodatage"})
+    st.dataframe(df_hist[["Horodatage","Type","Fichier","Résultat","Confidence"]].sort_values(by="Horodatage", ascending=False), use_container_width=True)
+else:
+    st.info("Aucun fichier traité pour le moment.")
+
 st.markdown('<div class="footer">© 2025 SmartBin Poubelles. Tous droits réservés.</div>', unsafe_allow_html=True)
