@@ -44,7 +44,7 @@ else:
     model = build_mobilenet_model()
 
 # -----------------------
-# Prédiction
+# Fonctions de prédiction
 # -----------------------
 def predict_image_file(path):
     from tensorflow.keras.preprocessing import image
@@ -114,58 +114,61 @@ def send_email_alert(subject, body, recipient):
         st.warning(f"Impossible d'envoyer l'email: {e}")
 
 # -----------------------
-# CSS moderne
+# CSS moderne site web
 # -----------------------
 st.markdown("""
 <style>
-body {
-    background-color: #f4f7fa;
-}
-.sidebar .sidebar-content {
-    background-color: #1E3C72;
-    color: white;
-}
-.sidebar .sidebar-content h2 {
-    color: white;
-}
+/* Header fixe */
 .header {
     background: linear-gradient(90deg, #1E3C72, #2A5298);
     padding: 25px;
-    border-radius: 15px;
+    border-radius: 0 0 15px 15px;
     color: white;
     text-align: center;
-    box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+    font-family: 'Arial', sans-serif;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
+/* Boutons et cards */
 .card {
     background-color: #ffffff;
     border-radius: 15px;
     padding: 20px;
-    margin: 10px 0;
+    margin: 15px 0;
     text-align: center;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 .alert-red { background-color: #FF4B4B; color: white; padding: 12px; border-radius: 10px; font-weight: bold; margin: 10px 0; text-align:center;}
 .alert-green { background-color: #4BB543; color: white; padding: 12px; border-radius: 10px; font-weight: bold; margin: 10px 0; text-align:center;}
+/* Footer */
+.footer {
+    text-align: center;
+    padding: 15px;
+    margin-top: 20px;
+    border-top: 1px solid #ddd;
+    color: #555;
+    font-size: 14px;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------
-# Sidebar navigation (comme une app Flask)
+# Navigation style Flask
 # -----------------------
-st.sidebar.title("SmartBin Poubelles")
-menu = st.sidebar.radio("Navigation", ["Accueil", "Upload", "Historique", "Statistiques", "Télécharger modèle"])
+tabs = ["Accueil", "Upload", "Historique", "Statistiques", "Télécharger modèle"]
+active_tab = st.tabs(tabs)
+tab_accueil, tab_upload, tab_hist, tab_stats, tab_model = active_tab
 
 # -----------------------
 # Accueil
 # -----------------------
-if menu == "Accueil":
+with tab_accueil:
     st.markdown('<div class="header"><h1>🗑️ SmartBin Pro</h1><p>Détection intelligente des poubelles pleines et vides</p></div>', unsafe_allow_html=True)
-    st.write("Bienvenue sur l'application SmartBin Poubelles. Utilisez le menu pour naviguer entre les sections.")
+    st.write("Bienvenue sur l'application SmartBin Poubelles. Utilisez les onglets pour naviguer entre les sections.")
 
 # -----------------------
 # Upload
 # -----------------------
-elif menu == "Upload":
+with tab_upload:
     st.subheader("📤 Upload images ou vidéos")
     uploaded_files = st.file_uploader(
         "Sélectionnez vos fichiers", accept_multiple_files=True, type=["jpg","jpeg","png","mp4"]
@@ -211,7 +214,7 @@ elif menu == "Upload":
 # -----------------------
 # Historique
 # -----------------------
-elif menu == "Historique":
+with tab_hist:
     st.subheader("📝 Historique")
     if st.session_state.history:
         df = pd.DataFrame(st.session_state.history)
@@ -224,7 +227,7 @@ elif menu == "Historique":
 # -----------------------
 # Statistiques
 # -----------------------
-elif menu == "Statistiques":
+with tab_stats:
     st.subheader("📊 Statistiques")
     if st.session_state.history:
         df = pd.DataFrame(st.session_state.history)
@@ -241,7 +244,7 @@ elif menu == "Statistiques":
 # -----------------------
 # Télécharger modèle
 # -----------------------
-elif menu == "Télécharger modèle":
+with tab_model:
     st.subheader("⬇️ Télécharger le modèle")
     if os.path.exists(MODEL_FILENAME):
         with open(MODEL_FILENAME, "rb") as f:
@@ -254,3 +257,8 @@ elif menu == "Télécharger modèle":
         )
     else:
         st.warning("Le fichier modèle n'existe pas.")
+
+# -----------------------
+# Footer
+# -----------------------
+st.markdown('<div class="footer">© 2025 SmartBin Poubelles. Tous droits réservés.</div>', unsafe_allow_html=True)
