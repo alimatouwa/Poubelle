@@ -91,34 +91,38 @@ if "history" not in st.session_state:
 # -----------------------
 st.markdown("""
 <style>
-.sidebar .sidebar-content { background-color: #1E3A8A; color: white; }
-.sidebar .sidebar-content h2 { color: #FFFFFF; }
 .header { text-align: center; background-color: #1E40AF; color: white; padding: 30px; border-radius: 10px; margin-bottom: 20px; }
 .upload-area { border: 2px dashed #1E40AF; border-radius: 10px; padding: 50px; text-align: center; margin-bottom: 20px; background-color: #eff6ff; font-size: 18px; color: #1E3A8A;}
-.card { background-color: #eff6ff; padding: 15px; border-radius: 10px; margin-bottom: 10px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1);}
+.card { background-color: #eff6ff; padding: 15px; border-radius: 10px; margin-bottom: 10px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1);}
 .alert-red { background-color: #EF4444; color:white; padding:10px; border-radius:10px; }
 .alert-blue { background-color: #3B82F6; color:white; padding:10px; border-radius:10px; }
 .footer { text-align:center; color:gray; margin-top:30px; }
+.button-style { background-color:#1E40AF; color:white; border:none; padding:10px 20px; border-radius:5px; font-weight:bold; cursor:pointer; margin-right:5px;}
+.button-style:hover { background-color:#2563EB; }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------
-# Sidebar pour navigation
+# Sidebar Navigation
 # -----------------------
-page = st.sidebar.selectbox("Navigation", ["Accueil", "Statistiques", "Historique", "Télécharger le modèle"])
+page = st.sidebar.selectbox("Navigation", ["Accueil", "Statistiques", "Télécharger le modèle"])
 
 # -----------------------
 # Page Accueil
 # -----------------------
 if page == "Accueil":
     st.markdown('<div class="header"><h1>Poubelle Detection</h1><p>Gestion intelligente des poubelles</p></div>', unsafe_allow_html=True)
+
     uploaded_files = st.file_uploader(
         "Glisser / Déposer vos fichiers ici ou cliquer pour sélectionner", 
-        accept_multiple_files=True, type=["jpg","jpeg","png","mp4"], key="uploader"
+        accept_multiple_files=True, type=["jpg","jpeg","png","mp4"]
     )
-    col1, col2 = st.columns(2)
-    predict_btn = col1.button("Prédire")
-    reset_btn = col2.button("Réinitialiser")
+
+    col1, col2 = st.columns([1,1])
+    predict_btn = col1.button("🖼️ Prédire")
+    reset_btn = col2.button("♻️ Réinitialiser")
+
+    recipient_email = st.text_input("Email pour alertes (poubelle pleine)", "")
 
     if reset_btn:
         st.session_state.history = []
@@ -133,11 +137,9 @@ if page == "Accueil":
             if f.type.startswith("image"):
                 cls, conf = predict_image_file(path)
                 ftype = "image"
-                st.image(path, caption=f.name, use_column_width=True)
             elif f.type.startswith("video"):
                 cls, conf = predict_video_file(path)
                 ftype = "video"
-                st.video(path)
             else:
                 continue
 
@@ -149,52 +151,83 @@ if page == "Accueil":
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
 
+            # Affichage côte à côte
+            col_img, col_res = st.columns([2,3])
+            with col_img:
+                if ftype=="image":
+                    st.image(path, use_column_width=True)
+                else:
+                    st.video(path)
+            with col_res:
+                color = "#EF4444" if cls=="poubelle_pleine" else "#3B82F6"
+                st.markdown(f"""
+                <div class="card" style="border-left:5px solid {color};">
+                    <b>{f.name}</b><br>
+                    Résultat: {cls}<br>
+                    Confiance: {conf*100:.2f}%<br>
+                    Type: {ftype}<br>
+                    Fichier: {f.name}
+                </div>
+                """, unsafe_allow_html=True)
+
 # -----------------------
 # Page Statistiques
 # -----------------------
-if page == "Statistiques" and st.session_state.history:
-    total = len(st.session_state.history)
-    pleines = sum(1 for h in st.session_state.history if h["result"]=="poubelle_pleine")
-    vides = total - pleines
+elif page == "Statistiques":
+    st.subheader("📊 Statistiques")
+    if st.session_state.history:
+        total = len(st.session_state.history)
+        pleines = sum(1 for h in st.session_state.history if h["result"]=="poubelle_pleine")
+        vides = total - pleines
 
-    st.subheader("Statistiques")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total fichiers", total)
-    col2.metric("Pleines", pleines)
-    col3.metric("Vides", vides)
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total", total)
+        col2.metric("Pleines", pleines)
+        col3.metric("Vides", vides)
 
-    st.bar_chart({"Pleines": [pleines], "Vides": [vides]})
+        # Bar chart simple
+        st.bar_chart({"Pleines": [pleines], "Vides": [vides]})
 
-# -----------------------
-# Page Historique
-# -----------------------
-if page == "Historique" and st.session_state.history:
-    st.subheader("Historique des prédictions")
-    for h in st.session_state.history[::-1]:
-        color = "#EF4444" if h["result"]=="poubelle_pleine" else "#3B82F6"
-        st.markdown(f"""
-        <div class="card" style="border-left:5px solid {color};">
-            <b>{h['filename']}</b><br>
-            Résultat: {h['result']}<br>
-            Confiance: {h['confidence']*100:.2f}%<br>
-            Type: {h['type']}<br>
-            Fichier: {h['filename']}
-        </div>
-        """, unsafe_allow_html=True)
+        # Confiance moyenne
+        if pleines>0:
+            conf_pleines = np.mean([h["confidence"] for h in st.session_state.history if h["result"]=="poubelle_pleine"])
+        else: conf_pleines = 0.0
+        if vides>0:
+            conf_vides = np.mean([h["confidence"] for h in st.session_state.history if h["result"]=="poubelle_vide"])
+        else: conf_vides = 0.0
+
+        st.subheader("Confiance moyenne (%)")
+        col1, col2 = st.columns(2)
+        col1.metric("Poubelles Pleines", f"{conf_pleines*100:.2f}%")
+        col2.metric("Poubelles Vides", f"{conf_vides*100:.2f}%")
+
+        # Historique trié par plus récent
+        st.subheader("Historique des prédictions")
+        for h in sorted(st.session_state.history, key=lambda x:x["timestamp"], reverse=True):
+            color = "#EF4444" if h["result"]=="poubelle_pleine" else "#3B82F6"
+            st.markdown(f"""
+            <div class="card" style="border-left:5px solid {color};">
+                <b>{h['filename']}</b><br>
+                Résultat: {h['result']}<br>
+                Confiance: {h['confidence']*100:.2f}%<br>
+                Type: {h['type']}<br>
+                Fichier: {h['filename']}
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("Aucune prédiction pour le moment.")
 
 # -----------------------
 # Page Télécharger le modèle
 # -----------------------
-if page == "Télécharger le modèle":
-    st.subheader("Télécharger le modèle")
+elif page == "Télécharger le modèle":
+    st.subheader("⬇️ Télécharger le modèle")
     if os.path.exists(MODEL_FILENAME):
         with open(MODEL_FILENAME, "rb") as f:
             model_bytes = f.read()
-        st.download_button("Télécharger le modèle", data=model_bytes, file_name="model_Poubelle.h5")
+        st.download_button("💾 Télécharger le modèle", data=model_bytes, file_name="model_Poubelle.h5")
     else:
         st.warning("Le fichier modèle n'existe pas.")
 
-# -----------------------
 # Footer
-# -----------------------
 st.markdown('<div class="footer">Poubelle Detection © 2025</div>', unsafe_allow_html=True)
