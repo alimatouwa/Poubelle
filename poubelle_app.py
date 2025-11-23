@@ -19,7 +19,7 @@ st.set_page_config(
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-MODEL_FILENAME = "poubelle_modell.h5"
+MODEL_FILENAME = "poubelle_modell1.h5"
 CLASSES = ["poubelle_vide", "poubelle_pleine"]
 
 # -----------------------
