@@ -10,8 +10,6 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import pandas as pd
-import time
-import plotly.express as px
 
 # -----------------------
 # Config Streamlit
@@ -24,7 +22,8 @@ st.set_page_config(
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-MODEL_FILENAME = "poubelle_modell.h5"
+
+MODEL_FILENAME = "poubelle_modell.h5"  # chemin local vers ton modèle
 CLASSES = ["poubelle_vide", "poubelle_pleine"]
 
 # -----------------------
@@ -92,7 +91,7 @@ if "history" not in st.session_state:
     st.session_state.history = []
 
 # -----------------------
-# Email
+# Email (SMTP)
 # -----------------------
 def send_email_alert(subject, body, recipient):
     try:
@@ -116,143 +115,133 @@ def send_email_alert(subject, body, recipient):
         st.warning(f"Impossible d'envoyer l'email: {e}")
 
 # -----------------------
-# CSS moderne
+# CSS pour design bleu
 # -----------------------
 st.markdown("""
 <style>
 .header {
-    background: linear-gradient(90deg, #1E3C72, #2A5298);
-    padding: 25px;
-    border-radius: 0 0 15px 15px;
+    background-color: #1E90FF;
+    padding: 20px;
+    border-radius: 10px;
     color: white;
     text-align: center;
-    font-family: 'Arial', sans-serif;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 .card {
-    background-color: #ffffff;
-    border-radius: 15px;
-    padding: 20px;
-    margin: 15px 0;
-    text-align: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    transition: transform 0.2s;
-}
-.card:hover { transform: translateY(-5px);}
-.alert-red { background-color: #0077b6; color: white; padding: 12px; border-radius: 10px; font-weight: bold; margin: 10px 0; text-align:center;}
-.alert-green { background-color: #00b4d8; color: white; padding: 12px; border-radius: 10px; font-weight: bold; margin: 10px 0; text-align:center;}
-.footer {
-    text-align: center;
+    background-color: #f0f8ff;
+    border-radius: 10px;
     padding: 15px;
-    margin-top: 20px;
-    border-top: 1px solid #ddd;
-    color: #555;
-    font-size: 14px;
+    text-align: center;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+}
+.alert-red {
+    background-color: #FF4500;
+    color: white;
+    padding: 10px;
+    border-radius: 10px;
+    font-weight: bold;
+}
+.alert-green {
+    background-color: #00BFFF;
+    color: white;
+    padding: 10px;
+    border-radius: 10px;
+    font-weight: bold;
 }
 </style>
+<div class="header">
+    <h1>🗑️ SmartBin Pro</h1>
+    <p>Détection intelligente des poubelles pleines et vides</p>
+</div>
 """, unsafe_allow_html=True)
 
 # -----------------------
-# Layout en colonnes pour interface type Flask
+# Upload images ou vidéos
 # -----------------------
-with st.container():
-    st.markdown('<div class="header"><h1>🗑️ SmartBin Pro</h1><p>Détection intelligente des poubelles pleines et vides</p></div>', unsafe_allow_html=True)
+st.subheader("📤 Upload images ou vidéos")
+uploaded_files = st.file_uploader(
+    "Sélectionnez des fichiers", accept_multiple_files=True, type=["jpg","jpeg","png","mp4"]
+)
+recipient_email = st.text_input("Email pour alertes (poubelle pleine)", "")
 
 col1, col2 = st.columns([2,1])
-
-# -----------------------
-# Colonne gauche: Upload + Prévisualisation
-# -----------------------
 with col1:
-    st.subheader("📤 Upload images ou vidéos")
-    uploaded_files = st.file_uploader(
-        "Sélectionnez vos fichiers", accept_multiple_files=True, type=["jpg","jpeg","png","mp4"]
-    )
-    recipient_email = st.text_input("Email pour alertes (poubelle pleine)", "")
-
     if uploaded_files:
         for f in uploaded_files:
             path = os.path.join(UPLOAD_FOLDER, f.name)
             with open(path,"wb") as out:
                 out.write(f.read())
             
-            with st.spinner(f"Analyse de {f.name} ..."):
-                time.sleep(0.5)
-                if f.type.startswith("image"):
-                    cls, conf = predict_image_file(path)
-                    st.image(path, caption=f.name, use_column_width=True)
-                elif f.type.startswith("video"):
-                    cls, conf = predict_video_file(path)
-                    st.video(path)
-                else:
-                    continue
+            if f.type.startswith("image"):
+                cls, conf = predict_image_file(path)
+                ftype = "Image"
+                st.image(path, caption=f.name, use_column_width=True)
+            elif f.type.startswith("video"):
+                cls, conf = predict_video_file(path)
+                ftype = "Vidéo"
+                st.video(path)
+            else:
+                continue
 
-                st.session_state.history.append({
-                    "filename": f.name,
-                    "type": "Image" if f.type.startswith("image") else "Vidéo",
-                    "result": cls,
-                    "confidence": conf,
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                })
+            st.session_state.history.append({
+                "filename": f.name,
+                "type": ftype,
+                "result": cls,
+                "confidence": conf,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
 
-                color_class = "alert-red" if cls=="poubelle_pleine" else "alert-green"
-                st.markdown(f'<div class="{color_class}">{f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
+            if cls == "poubelle_pleine":
+                st.markdown(f'<div class="alert-red">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
+                if recipient_email:
+                    send_email_alert(
+                        "Alerte SmartBin: Poubelle pleine",
+                        f"La poubelle est pleine pour le fichier {f.name} (confiance {conf*100:.1f}%)",
+                        recipient_email
+                    )
+            else:
+                st.markdown(f'<div class="alert-green">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
 
-                if cls=="poubelle_pleine" and recipient_email:
-                    send_email_alert("Alerte SmartBin: Poubelle pleine",
-                                     f"La poubelle est pleine pour le fichier {f.name} (confiance {conf*100:.1f}%)",
-                                     recipient_email)
-
-# -----------------------
-# Colonne droite: Statistiques
-# -----------------------
 with col2:
-    st.subheader("📊 Statistiques globales")
+    # -----------------------
+    # Télécharger modèle
+    # -----------------------
+    st.subheader("⬇️ Télécharger le modèle")
+    if os.path.exists(MODEL_FILENAME):
+        with open(MODEL_FILENAME, "rb") as f:
+            model_bytes = f.read()
+        st.download_button(
+            label="Télécharger le modèle",
+            data=model_bytes,
+            file_name="model_Poubelle.h5",
+            mime="application/octet-stream"
+        )
+    else:
+        st.warning("Le fichier modèle n'existe pas.")
+
+    # -----------------------
+    # Statistiques
+    # -----------------------
+    st.subheader("📊 Statistiques")
     if st.session_state.history:
-        df = pd.DataFrame(st.session_state.history)
-        total = len(df)
-        pleines = df[df["result"]=="poubelle_pleine"].shape[0]
+        df_hist = pd.DataFrame(st.session_state.history)
+        total = len(df_hist)
+        pleines = df_hist[df_hist["result"]=="poubelle_pleine"].shape[0]
         vides = total - pleines
 
-        # Graphique circulaire
-        fig = px.pie(names=["Poubelles Pleines","Poubelles Vides"], values=[pleines, vides],
-                     color_discrete_sequence=["#0077b6","#00b4d8"])
-        st.plotly_chart(fig, use_container_width=True)
+        st.metric("Total fichiers", total)
+        st.metric("Poubelles Pleines", pleines)
+        st.metric("Poubelles Vides", vides)
 
-        # Graphique en barres
-        count_by_type = df.groupby("type")["filename"].count().reset_index()
-        fig2 = px.bar(count_by_type, x="type", y="filename", color="type", 
-                      color_discrete_sequence=["#0077b6","#00b4d8"], labels={"filename":"Nombre de fichiers"})
-        st.plotly_chart(fig2, use_container_width=True)
-    else:
-        st.info("Aucun fichier traité pour le moment.")
+        # Graphique simple avec st.bar_chart
+        stats_df = pd.DataFrame({
+            "Type": ["Poubelles Pleines", "Poubelles Vides"],
+            "Nombre": [pleines, vides]
+        })
+        stats_df = stats_df.set_index("Type")
+        st.bar_chart(stats_df)
 
-# -----------------------
-# Télécharger modèle
-# -----------------------
-st.subheader("⬇️ Télécharger le modèle")
-if os.path.exists(MODEL_FILENAME):
-    with open(MODEL_FILENAME, "rb") as f:
-        model_bytes = f.read()
-    st.download_button(
-        label="Télécharger le modèle",
-        data=model_bytes,
-        file_name="model_MobileNetV2.h5",
-        mime="application/octet-stream"
-    )
-else:
-    st.warning("Le fichier modèle n'existe pas.")
-
-# -----------------------
-# Historique complet
-# -----------------------
-st.subheader("📝 Historique complet")
-if st.session_state.history:
-    df_hist = pd.DataFrame(st.session_state.history)
-    df_hist["Confidence"] = df_hist["confidence"].apply(lambda x: f"{x*100:.1f}%")
-    df_hist = df_hist.rename(columns={"filename":"Fichier","type":"Type","result":"Résultat","timestamp":"Horodatage"})
-    st.dataframe(df_hist[["Horodatage","Type","Fichier","Résultat","Confidence"]].sort_values(by="Horodatage", ascending=False), use_container_width=True)
-else:
-    st.info("Aucun fichier traité pour le moment.")
-
-st.markdown('<div class="footer">© 2025 SmartBin Poubelles. Tous droits réservés.</div>', unsafe_allow_html=True)
+        # Historique détaillé
+        st.subheader("📝 Historique")
+        for h in st.session_state.history[::-1]:
+            color = "#FF4500" if h["result"]=="poubelle_pleine" else "#00BFFF"
+            st.markdown(f'<div style="background-color:{color};color:white;padding:5px;border-radius:5px;margin-bottom:3px;">{h["timestamp"]} - {h["type"]} {h["filename"]} → {h["result"]} ({h["confidence"]*100:.1f}%)</div>', unsafe_allow_html=True)
