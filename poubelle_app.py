@@ -9,6 +9,7 @@ from tensorflow.keras import layers, models
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import pandas as pd
 
 # -----------------------
 # Config Streamlit
@@ -22,7 +23,7 @@ st.set_page_config(
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-MODEL_FILENAME = "poubelle_modell.h5"  # chemin local vers ton modèle
+MODEL_FILENAME = "poubelle_modell.h5"
 CLASSES = ["poubelle_vide", "poubelle_pleine"]
 
 # -----------------------
@@ -114,18 +115,18 @@ def send_email_alert(subject, body, recipient):
         st.warning(f"Impossible d'envoyer l'email: {e}")
 
 # -----------------------
-# CSS pour design moderne bleu
+# CSS pour design dashboard bleu
 # -----------------------
 st.markdown("""
 <style>
 .header {
     background: linear-gradient(90deg, #1E3C72, #2A5298);
-    padding: 20px;
+    padding: 25px;
     border-radius: 15px;
     color: white;
     text-align: center;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.2);
 }
 .card {
     background-color: #f0f4f8;
@@ -229,11 +230,12 @@ else:
     st.warning("Le fichier modèle n'existe pas.")
 
 # -----------------------
-# Statistiques et historique
+# Statistiques
 # -----------------------
 if st.session_state.history:
-    total = len(st.session_state.history)
-    pleines = sum(1 for h in st.session_state.history if h["result"]=="poubelle_pleine")
+    df = pd.DataFrame(st.session_state.history)
+    total = len(df)
+    pleines = df[df["result"]=="poubelle_pleine"].shape[0]
     vides = total - pleines
 
     st.subheader("📊 Statistiques")
@@ -243,6 +245,8 @@ if st.session_state.history:
     col3.metric("Poubelles Vides", vides)
 
     st.subheader("📝 Historique")
-    for h in st.session_state.history[::-1]:
-        color = "#FF4B4B" if h["result"]=="poubelle_pleine" else "#4BB543"
-        st.markdown(f'<div style="background-color:{color};color:white;padding:8px;border-radius:8px;margin-bottom:5px;">{h["timestamp"]} - {h["type"]} {h["filename"]} → {h["result"]} ({h["confidence"]*100:.1f}%)</div>', unsafe_allow_html=True)
+    df_display = df.copy()
+    df_display["Confidence"] = df_display["confidence"].apply(lambda x: f"{x*100:.1f}%")
+    df_display = df_display.rename(columns={"filename": "Fichier", "type": "Type", "result": "Résultat", "timestamp": "Horodatage"})
+    
+    st.dataframe(df_display[["Horodatage","Type","Fichier","Résultat","Confidence"]].sort_values(by="Horodatage", ascending=False), use_container_width=True)
