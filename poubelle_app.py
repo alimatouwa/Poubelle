@@ -22,7 +22,6 @@ st.set_page_config(
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
 MODEL_FILENAME = "poubelle_modell.h5"
 CLASSES = ["poubelle_vide", "poubelle_pleine"]
 
@@ -45,7 +44,7 @@ else:
     model = build_mobilenet_model()
 
 # -----------------------
-# Fonctions de prédiction
+# Prédiction
 # -----------------------
 def predict_image_file(path):
     from tensorflow.keras.preprocessing import image
@@ -91,7 +90,7 @@ if "history" not in st.session_state:
     st.session_state.history = []
 
 # -----------------------
-# Email (SMTP)
+# Email
 # -----------------------
 def send_email_alert(subject, body, recipient):
     try:
@@ -115,138 +114,143 @@ def send_email_alert(subject, body, recipient):
         st.warning(f"Impossible d'envoyer l'email: {e}")
 
 # -----------------------
-# CSS pour design dashboard bleu
+# CSS moderne
 # -----------------------
 st.markdown("""
 <style>
+body {
+    background-color: #f4f7fa;
+}
+.sidebar .sidebar-content {
+    background-color: #1E3C72;
+    color: white;
+}
+.sidebar .sidebar-content h2 {
+    color: white;
+}
 .header {
     background: linear-gradient(90deg, #1E3C72, #2A5298);
     padding: 25px;
     border-radius: 15px;
     color: white;
     text-align: center;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     box-shadow: 0 6px 15px rgba(0,0,0,0.2);
 }
 .card {
-    background-color: #f0f4f8;
+    background-color: #ffffff;
     border-radius: 15px;
     padding: 20px;
     margin: 10px 0;
     text-align: center;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
-.alert-red {
-    background-color: #FF4B4B;
-    color: white;
-    padding: 12px;
-    border-radius: 10px;
-    font-weight: bold;
-    text-align: center;
-    margin: 10px 0;
-}
-.alert-green {
-    background-color: #4BB543;
-    color: white;
-    padding: 12px;
-    border-radius: 10px;
-    font-weight: bold;
-    text-align: center;
-    margin: 10px 0;
-}
-.download-btn {
-    background-color: #1E3C72;
-    color: white;
-    font-weight: bold;
-    border-radius: 8px;
-    padding: 8px 16px;
-}
+.alert-red { background-color: #FF4B4B; color: white; padding: 12px; border-radius: 10px; font-weight: bold; margin: 10px 0; text-align:center;}
+.alert-green { background-color: #4BB543; color: white; padding: 12px; border-radius: 10px; font-weight: bold; margin: 10px 0; text-align:center;}
 </style>
-<div class="header">
-    <h1>🗑️ SmartBin Pro</h1>
-    <p>Détection intelligente des poubelles pleines et vides</p>
-</div>
 """, unsafe_allow_html=True)
+
+# -----------------------
+# Sidebar navigation (comme une app Flask)
+# -----------------------
+st.sidebar.title("SmartBin Poubelles")
+menu = st.sidebar.radio("Navigation", ["Accueil", "Upload", "Historique", "Statistiques", "Télécharger modèle"])
+
+# -----------------------
+# Accueil
+# -----------------------
+if menu == "Accueil":
+    st.markdown('<div class="header"><h1>🗑️ SmartBin Pro</h1><p>Détection intelligente des poubelles pleines et vides</p></div>', unsafe_allow_html=True)
+    st.write("Bienvenue sur l'application SmartBin Poubelles. Utilisez le menu pour naviguer entre les sections.")
 
 # -----------------------
 # Upload
 # -----------------------
-st.subheader("📤 Upload images ou vidéos")
-uploaded_files = st.file_uploader(
-    "Sélectionnez vos fichiers", accept_multiple_files=True, type=["jpg","jpeg","png","mp4"]
-)
-recipient_email = st.text_input("Email pour alertes (poubelle pleine)", "")
-
-if uploaded_files:
-    for f in uploaded_files:
-        path = os.path.join(UPLOAD_FOLDER, f.name)
-        with open(path,"wb") as out:
-            out.write(f.read())
-        
-        if f.type.startswith("image"):
-            cls, conf = predict_image_file(path)
-            ftype = "Image"
-            st.image(path, caption=f.name, use_column_width=True)
-        elif f.type.startswith("video"):
-            cls, conf = predict_video_file(path)
-            ftype = "Vidéo"
-            st.video(path)
-        else:
-            continue
-
-        st.session_state.history.append({
-            "filename": f.name,
-            "type": ftype,
-            "result": cls,
-            "confidence": conf,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        })
-
-        if cls == "poubelle_pleine":
-            st.markdown(f'<div class="alert-red">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
-            if recipient_email:
-                send_email_alert(
-                    "Alerte SmartBin: Poubelle pleine",
-                    f"La poubelle est pleine pour le fichier {f.name} (confiance {conf*100:.1f}%)",
-                    recipient_email
-                )
-        else:
-            st.markdown(f'<div class="alert-green">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
-
-# -----------------------
-# Télécharger modèle
-# -----------------------
-st.subheader("⬇️ Télécharger le modèle")
-if os.path.exists(MODEL_FILENAME):
-    with open(MODEL_FILENAME, "rb") as f:
-        model_bytes = f.read()
-    st.download_button(
-        label="Télécharger le modèle",
-        data=model_bytes,
-        file_name="model_MobileNetV2.h5",
-        mime="application/octet-stream"
+elif menu == "Upload":
+    st.subheader("📤 Upload images ou vidéos")
+    uploaded_files = st.file_uploader(
+        "Sélectionnez vos fichiers", accept_multiple_files=True, type=["jpg","jpeg","png","mp4"]
     )
-else:
-    st.warning("Le fichier modèle n'existe pas.")
+    recipient_email = st.text_input("Email pour alertes (poubelle pleine)", "")
+
+    if uploaded_files:
+        for f in uploaded_files:
+            path = os.path.join(UPLOAD_FOLDER, f.name)
+            with open(path,"wb") as out:
+                out.write(f.read())
+            
+            if f.type.startswith("image"):
+                cls, conf = predict_image_file(path)
+                ftype = "Image"
+                st.image(path, caption=f.name, use_column_width=True)
+            elif f.type.startswith("video"):
+                cls, conf = predict_video_file(path)
+                ftype = "Vidéo"
+                st.video(path)
+            else:
+                continue
+
+            st.session_state.history.append({
+                "filename": f.name,
+                "type": ftype,
+                "result": cls,
+                "confidence": conf,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
+
+            if cls == "poubelle_pleine":
+                st.markdown(f'<div class="alert-red">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
+                if recipient_email:
+                    send_email_alert(
+                        "Alerte SmartBin: Poubelle pleine",
+                        f"La poubelle est pleine pour le fichier {f.name} (confiance {conf*100:.1f}%)",
+                        recipient_email
+                    )
+            else:
+                st.markdown(f'<div class="alert-green">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
+
+# -----------------------
+# Historique
+# -----------------------
+elif menu == "Historique":
+    st.subheader("📝 Historique")
+    if st.session_state.history:
+        df = pd.DataFrame(st.session_state.history)
+        df["Confidence"] = df["confidence"].apply(lambda x: f"{x*100:.1f}%")
+        df = df.rename(columns={"filename":"Fichier","type":"Type","result":"Résultat","timestamp":"Horodatage"})
+        st.dataframe(df[["Horodatage","Type","Fichier","Résultat","Confidence"]].sort_values(by="Horodatage", ascending=False), use_container_width=True)
+    else:
+        st.info("Aucun fichier traité pour le moment.")
 
 # -----------------------
 # Statistiques
 # -----------------------
-if st.session_state.history:
-    df = pd.DataFrame(st.session_state.history)
-    total = len(df)
-    pleines = df[df["result"]=="poubelle_pleine"].shape[0]
-    vides = total - pleines
-
+elif menu == "Statistiques":
     st.subheader("📊 Statistiques")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total fichiers", total)
-    col2.metric("Poubelles Pleines", pleines)
-    col3.metric("Poubelles Vides", vides)
+    if st.session_state.history:
+        df = pd.DataFrame(st.session_state.history)
+        total = len(df)
+        pleines = df[df["result"]=="poubelle_pleine"].shape[0]
+        vides = total - pleines
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total fichiers", total)
+        col2.metric("Poubelles Pleines", pleines)
+        col3.metric("Poubelles Vides", vides)
+    else:
+        st.info("Aucun fichier traité pour le moment.")
 
-    st.subheader("📝 Historique")
-    df_display = df.copy()
-    df_display["Confidence"] = df_display["confidence"].apply(lambda x: f"{x*100:.1f}%")
-    df_display = df_display.rename(columns={"filename": "Fichier", "type": "Type", "result": "Résultat", "timestamp": "Horodatage"})
-    
-    st.dataframe(df_display[["Horodatage","Type","Fichier","Résultat","Confidence"]].sort_values(by="Horodatage", ascending=False), use_container_width=True)
+# -----------------------
+# Télécharger modèle
+# -----------------------
+elif menu == "Télécharger modèle":
+    st.subheader("⬇️ Télécharger le modèle")
+    if os.path.exists(MODEL_FILENAME):
+        with open(MODEL_FILENAME, "rb") as f:
+            model_bytes = f.read()
+        st.download_button(
+            label="Télécharger le modèle",
+            data=model_bytes,
+            file_name="model_MobileNetV2.h5",
+            mime="application/octet-stream"
+        )
+    else:
+        st.warning("Le fichier modèle n'existe pas.")
