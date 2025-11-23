@@ -101,90 +101,100 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Header
-st.markdown('<div class="header"><h1>Poubelle Detection</h1><p>Gestion intelligente des poubelles</p></div>', unsafe_allow_html=True)
+# -----------------------
+# Sidebar pour navigation
+# -----------------------
+page = st.sidebar.selectbox("Navigation", ["Accueil", "Statistiques", "Télécharger le modèle"])
 
-# Upload area
-uploaded_files = st.file_uploader(
-    "Glisser / Déposer vos fichiers ici ou cliquer pour sélectionner", 
-    accept_multiple_files=True, type=["jpg","jpeg","png","mp4"], key="uploader"
-)
+# -----------------------
+# Page Accueil
+# -----------------------
+if page == "Accueil":
+    st.markdown('<div class="header"><h1>Poubelle Detection</h1><p>Gestion intelligente des poubelles</p></div>', unsafe_allow_html=True)
 
-# Boutons
-col1, col2, col3 = st.columns([1,1,1])
-predict_btn = col1.button("Prédire")
-reset_btn = col2.button("Réinitialiser")
-download_btn = col3.button("Télécharger le modèle")
+    uploaded_files = st.file_uploader(
+        "Glisser / Déposer vos fichiers ici ou cliquer pour sélectionner", 
+        accept_multiple_files=True, type=["jpg","jpeg","png","mp4"]
+    )
 
-recipient_email = st.text_input("Email pour alertes (poubelle pleine)", "")
+    col1, col2 = st.columns([1,1])
+    predict_btn = col1.button("Prédire")
+    reset_btn = col2.button("Réinitialiser")
 
-# Réinitialiser
-if reset_btn:
-    st.session_state.history = []
-    st.success("Historique réinitialisé")
+    recipient_email = st.text_input("Email pour alertes (poubelle pleine)", "")
 
-# Télécharger le modèle
-if download_btn:
+    if reset_btn:
+        st.session_state.history = []
+        st.success("Historique réinitialisé")
+
+    if predict_btn and uploaded_files:
+        for f in uploaded_files:
+            path = os.path.join(UPLOAD_FOLDER, f.name)
+            with open(path,"wb") as out:
+                out.write(f.read())
+
+            if f.type.startswith("image"):
+                cls, conf = predict_image_file(path)
+                ftype = "image"
+                st.image(path, caption=f.name, use_column_width=True)
+            elif f.type.startswith("video"):
+                cls, conf = predict_video_file(path)
+                ftype = "video"
+                st.video(path)
+            else:
+                continue
+
+            st.session_state.history.append({
+                "filename": f.name,
+                "type": ftype,
+                "result": cls,
+                "confidence": conf,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
+
+# -----------------------
+# Page Statistiques
+# -----------------------
+elif page == "Statistiques":
+    st.subheader("Statistiques générales")
+    if st.session_state.history:
+        total = len(st.session_state.history)
+        pleines = sum(1 for h in st.session_state.history if h["result"]=="poubelle_pleine")
+        vides = total - pleines
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total", total)
+        col2.metric("Pleines", pleines)
+        col3.metric("Vides", vides)
+
+        st.bar_chart({"Pleines": [pleines], "Vides": [vides]})
+
+        st.subheader("Historique des prédictions")
+        for h in st.session_state.history[::-1]:
+            color = "#EF4444" if h["result"]=="poubelle_pleine" else "#3B82F6"
+            st.markdown(f"""
+            <div class="card" style="border-left:5px solid {color};">
+                <b>{h['filename']}</b><br>
+                Résultat: {h['result']}<br>
+                Confiance: {h['confidence']*100:.2f}%<br>
+                Type: {h['type']}<br>
+                Fichier: {h['filename']}
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("Aucune prédiction pour le moment.")
+
+# -----------------------
+# Page Télécharger le modèle
+# -----------------------
+elif page == "Télécharger le modèle":
+    st.subheader("Télécharger le modèle")
     if os.path.exists(MODEL_FILENAME):
         with open(MODEL_FILENAME, "rb") as f:
             model_bytes = f.read()
         st.download_button("Télécharger le modèle", data=model_bytes, file_name="model_Poubelle.h5")
     else:
         st.warning("Le fichier modèle n'existe pas.")
-
-# Prédire
-if predict_btn and uploaded_files:
-    for f in uploaded_files:
-        path = os.path.join(UPLOAD_FOLDER, f.name)
-        with open(path,"wb") as out:
-            out.write(f.read())
-
-        if f.type.startswith("image"):
-            cls, conf = predict_image_file(path)
-            ftype = "image"
-            st.image(path, caption=f.name, use_column_width=True)
-        elif f.type.startswith("video"):
-            cls, conf = predict_video_file(path)
-            ftype = "video"
-            st.video(path)
-        else:
-            continue
-
-        st.session_state.history.append({
-            "filename": f.name,
-            "type": ftype,
-            "result": cls,
-            "confidence": conf,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        })
-
-# Statistiques
-if st.session_state.history:
-    total = len(st.session_state.history)
-    pleines = sum(1 for h in st.session_state.history if h["result"]=="poubelle_pleine")
-    vides = total - pleines
-
-    st.subheader("Statistiques")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total", total)
-    col2.metric("Pleines", pleines)
-    col3.metric("Vides", vides)
-
-    st.bar_chart({"Pleines": [pleines], "Vides": [vides]})
-
-    # Historique
-    st.subheader("Historique des prédictions")
-    for h in st.session_state.history[::-1]:
-        color = "#EF4444" if h["result"]=="poubelle_pleine" else "#3B82F6"
-        st.markdown(f"""
-        <div class="card" style="border-left:5px solid {color};">
-            <b>{h['filename']}</b><br>
-            Résultat: {h['result']}<br>
-            Confiance: {h['confidence']*100:.2f}%<br>
-            Type: {h['type']}<br>
-            Fichier: {h['filename']}
-        </div>
-        """, unsafe_allow_html=True)
 
 # Footer
 st.markdown('<div class="footer">Poubelle Detection © 2025</div>', unsafe_allow_html=True)
