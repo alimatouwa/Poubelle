@@ -185,10 +185,25 @@ elif page == "Statistiques":
         col2.metric("Pleines", pleines)
         col3.metric("Vides", vides)
 
+        # Bar chart simple
         st.bar_chart({"Pleines": [pleines], "Vides": [vides]})
 
+        # Confiance moyenne
+        if pleines>0:
+            conf_pleines = np.mean([h["confidence"] for h in st.session_state.history if h["result"]=="poubelle_pleine"])
+        else: conf_pleines = 0.0
+        if vides>0:
+            conf_vides = np.mean([h["confidence"] for h in st.session_state.history if h["result"]=="poubelle_vide"])
+        else: conf_vides = 0.0
+
+        st.subheader("Confiance moyenne (%)")
+        col1, col2 = st.columns(2)
+        col1.metric("Poubelles Pleines", f"{conf_pleines*100:.2f}%")
+        col2.metric("Poubelles Vides", f"{conf_vides*100:.2f}%")
+
+        # Historique trié par plus récent
         st.subheader("Historique des prédictions")
-        for h in st.session_state.history[::-1]:
+        for h in sorted(st.session_state.history, key=lambda x:x["timestamp"], reverse=True):
             color = "#EF4444" if h["result"]=="poubelle_pleine" else "#3B82F6"
             st.markdown(f"""
             <div class="card" style="border-left:5px solid {color};">
