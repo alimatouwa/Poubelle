@@ -6,7 +6,6 @@ from datetime import datetime
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras import layers, models
-from flask_mail import Mail, Message  # pour envoi d'email
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -23,7 +22,7 @@ st.set_page_config(
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-MODEL_FILENAME = "/Users/apple/Documents/mac/envi/Exercices/poubelle_modell.h5"
+MODEL_FILENAME = "poubelle_modell.h5"  # chemin local vers ton modèle
 CLASSES = ["poubelle_vide", "poubelle_pleine"]
 
 # -----------------------
@@ -45,7 +44,7 @@ else:
     model = build_mobilenet_model()
 
 # -----------------------
-# Prediction
+# Fonctions de prédiction
 # -----------------------
 def predict_image_file(path):
     from tensorflow.keras.preprocessing import image
@@ -115,13 +114,13 @@ def send_email_alert(subject, body, recipient):
         st.warning(f"Impossible d'envoyer l'email: {e}")
 
 # -----------------------
-# Interface
+# CSS pour design
 # -----------------------
 st.markdown("""
 <style>
 .header {
     background-color: #2E8B57;
-    padding: 10px;
+    padding: 15px;
     border-radius: 10px;
     color: white;
     text-align: center;
@@ -131,32 +130,36 @@ st.markdown("""
     border-radius: 10px;
     padding: 15px;
     text-align: center;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
 }
 .alert-red {
     background-color: #FF6347;
     color: white;
     padding: 10px;
     border-radius: 10px;
+    font-weight: bold;
 }
 .alert-green {
     background-color: #32CD32;
     color: white;
     padding: 10px;
     border-radius: 10px;
+    font-weight: bold;
 }
 </style>
 <div class="header">
-    <h1>🗑️ SmartBin</h1>
+    <h1>🗑️ SmartBin Pro</h1>
     <p>Détection intelligente des poubelles pleines et vides</p>
 </div>
 """, unsafe_allow_html=True)
 
-# Upload
+# -----------------------
+# Upload images ou vidéos
+# -----------------------
 st.subheader("📤 Upload images ou vidéos")
 uploaded_files = st.file_uploader(
-    "Sélectionnez des images ou vidéos", accept_multiple_files=True, type=["jpg","jpeg","png","mp4"]
+    "Sélectionnez des fichiers", accept_multiple_files=True, type=["jpg","jpeg","png","mp4"]
 )
-
 recipient_email = st.text_input("Email pour alertes (poubelle pleine)", "")
 
 if uploaded_files:
@@ -195,13 +198,25 @@ if uploaded_files:
         else:
             st.markdown(f'<div class="alert-green">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
 
+# -----------------------
 # Télécharger modèle
+# -----------------------
 st.subheader("⬇️ Télécharger le modèle")
 if os.path.exists(MODEL_FILENAME):
     with open(MODEL_FILENAME, "rb") as f:
-        st.download_button("Télécharger le modèle", f, file_name="model_MobileNetV2.h5")
+        model_bytes = f.read()
+    st.download_button(
+        label="Télécharger le modèle MobileNetV2",
+        data=model_bytes,
+        file_name="model_MobileNetV2.h5",
+        mime="application/octet-stream"
+    )
+else:
+    st.warning("Le fichier modèle n'existe pas.")
 
-# Statistiques
+# -----------------------
+# Statistiques et historique
+# -----------------------
 if st.session_state.history:
     total = len(st.session_state.history)
     pleines = sum(1 for h in st.session_state.history if h["result"]=="poubelle_pleine")
@@ -209,7 +224,7 @@ if st.session_state.history:
 
     st.subheader("📊 Statistiques")
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total", total)
+    col1.metric("Total fichiers", total)
     col2.metric("Poubelles Pleines", pleines)
     col3.metric("Poubelles Vides", vides)
 
