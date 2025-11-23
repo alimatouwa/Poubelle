@@ -6,7 +6,6 @@ from datetime import datetime
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras import layers, models
-import matplotlib.pyplot as plt
 
 # -----------------------
 # Config Streamlit
@@ -92,47 +91,19 @@ if "history" not in st.session_state:
 # -----------------------
 st.markdown("""
 <style>
-.header {
-    text-align: center;
-    background-color: #1E3A8A;
-    color: white;
-    padding: 25px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-    box-shadow: 0px 4px 10px rgba(0,0,0,0.2);
-}
-.upload-area {
-    border: 2px dashed #1E3A8A;
-    border-radius: 10px;
-    padding: 40px;
-    text-align: center;
-    margin-bottom: 20px;
-    background-color: #f0f4ff;
-}
-.button-row button {
-    margin-right: 10px;
-}
-.card {
-    background-color: #f0f4ff;
-    padding: 15px;
-    border-radius: 10px;
-    margin-bottom: 10px;
-    box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
-}
+.header { text-align: center; background-color: #1E3A8A; color: white; padding: 25px; border-radius: 10px; margin-bottom: 20px; }
+.upload-area { border: 2px dashed #1E3A8A; border-radius: 10px; padding: 40px; text-align: center; margin-bottom: 20px; background-color: #f0f4ff; }
+.card { background-color: #f0f4ff; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
 .alert-red { background-color: #FF4B4B; color:white; padding:10px; border-radius:10px; }
 .alert-blue { background-color: #1E90FF; color:white; padding:10px; border-radius:10px; }
 .footer { text-align:center; color:gray; margin-top:20px; }
 </style>
 """, unsafe_allow_html=True)
 
-# -----------------------
 # Header
-# -----------------------
 st.markdown('<div class="header"><h1>SmartBin</h1><p>Gestion intelligente des poubelles</p></div>', unsafe_allow_html=True)
 
-# -----------------------
 # Upload files
-# -----------------------
 uploaded_files = st.file_uploader(
     "Glisser / Déposer vos fichiers ici ou cliquer pour sélectionner", 
     accept_multiple_files=True, type=["jpg","jpeg","png","mp4"], key="uploader"
@@ -145,16 +116,12 @@ download_btn = col3.button("Télécharger le modèle", key="download")
 
 recipient_email = st.text_input("Email pour alertes (poubelle pleine)", "")
 
-# -----------------------
 # Réinitialiser
-# -----------------------
 if reset_btn:
     st.session_state.history = []
     st.success("Historique réinitialisé")
 
-# -----------------------
 # Télécharger le modèle
-# -----------------------
 if download_btn:
     if os.path.exists(MODEL_FILENAME):
         with open(MODEL_FILENAME, "rb") as f:
@@ -163,9 +130,7 @@ if download_btn:
     else:
         st.warning("Le fichier modèle n'existe pas.")
 
-# -----------------------
 # Traitement Prédire
-# -----------------------
 if predict_btn and uploaded_files:
     for f in uploaded_files:
         path = os.path.join(UPLOAD_FOLDER, f.name)
@@ -191,25 +156,20 @@ if predict_btn and uploaded_files:
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
 
-# -----------------------
-# Statistiques avec graphique
-# -----------------------
+# Statistiques avec st.metric et st.bar_chart
 if st.session_state.history:
     total = len(st.session_state.history)
     pleines = sum(1 for h in st.session_state.history if h["result"]=="poubelle_pleine")
     vides = total - pleines
 
     st.subheader("Statistiques")
-    col1, col2 = st.columns(2)
-    
-    # Graphique circulaire
-    fig, ax = plt.subplots()
-    ax.pie([pleines, vides], labels=["Pleines","Vides"], autopct='%1.1f%%', colors=["#FF4B4B","#1E90FF"])
-    ax.set_title("Répartition des poubelles")
-    col1.pyplot(fig)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total", total)
+    col2.metric("Pleines", pleines)
+    col3.metric("Vides", vides)
 
-    # Graphique barre
-    col2.bar_chart({"Total": [total], "Pleines": [pleines], "Vides": [vides]})
+    # Graphique barre simple
+    st.bar_chart({"Pleines": [pleines], "Vides": [vides]})
 
     # Historique
     st.subheader("Historique des prédictions")
@@ -225,7 +185,5 @@ if st.session_state.history:
         </div>
         """, unsafe_allow_html=True)
 
-# -----------------------
 # Footer
-# -----------------------
 st.markdown('<div class="footer">SmartBin © 2025</div>', unsafe_allow_html=True)
