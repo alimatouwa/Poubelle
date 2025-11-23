@@ -14,7 +14,7 @@ from email.mime.multipart import MIMEMultipart
 # Config Streamlit
 # -----------------------
 st.set_page_config(
-    page_title="SmartBin Pro",
+    page_title="SmartBin Poubelles",
     page_icon="🗑️",
     layout="wide"
 )
@@ -114,37 +114,51 @@ def send_email_alert(subject, body, recipient):
         st.warning(f"Impossible d'envoyer l'email: {e}")
 
 # -----------------------
-# CSS pour design
+# CSS pour design moderne bleu
 # -----------------------
 st.markdown("""
 <style>
 .header {
-    background-color: #2E8B57;
-    padding: 15px;
-    border-radius: 10px;
+    background: linear-gradient(90deg, #1E3C72, #2A5298);
+    padding: 20px;
+    border-radius: 15px;
     color: white;
     text-align: center;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 .card {
-    background-color: #f5f5f5;
-    border-radius: 10px;
-    padding: 15px;
+    background-color: #f0f4f8;
+    border-radius: 15px;
+    padding: 20px;
+    margin: 10px 0;
     text-align: center;
-    box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 .alert-red {
-    background-color: #FF6347;
+    background-color: #FF4B4B;
     color: white;
-    padding: 10px;
+    padding: 12px;
     border-radius: 10px;
     font-weight: bold;
+    text-align: center;
+    margin: 10px 0;
 }
 .alert-green {
-    background-color: #32CD32;
+    background-color: #4BB543;
     color: white;
-    padding: 10px;
+    padding: 12px;
     border-radius: 10px;
     font-weight: bold;
+    text-align: center;
+    margin: 10px 0;
+}
+.download-btn {
+    background-color: #1E3C72;
+    color: white;
+    font-weight: bold;
+    border-radius: 8px;
+    padding: 8px 16px;
 }
 </style>
 <div class="header">
@@ -154,11 +168,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------
-# Upload images ou vidéos
+# Upload
 # -----------------------
 st.subheader("📤 Upload images ou vidéos")
 uploaded_files = st.file_uploader(
-    "Sélectionnez des fichiers", accept_multiple_files=True, type=["jpg","jpeg","png","mp4"]
+    "Sélectionnez vos fichiers", accept_multiple_files=True, type=["jpg","jpeg","png","mp4"]
 )
 recipient_email = st.text_input("Email pour alertes (poubelle pleine)", "")
 
@@ -230,5 +244,5 @@ if st.session_state.history:
 
     st.subheader("📝 Historique")
     for h in st.session_state.history[::-1]:
-        color = "#FF6347" if h["result"]=="poubelle_pleine" else "#32CD32"
-        st.markdown(f'<div style="background-color:{color};color:white;padding:5px;border-radius:5px;margin-bottom:3px;">{h["timestamp"]} - {h["type"]} {h["filename"]} → {h["result"]} ({h["confidence"]*100:.1f}%)</div>', unsafe_allow_html=True)
+        color = "#FF4B4B" if h["result"]=="poubelle_pleine" else "#4BB543"
+        st.markdown(f'<div style="background-color:{color};color:white;padding:8px;border-radius:8px;margin-bottom:5px;">{h["timestamp"]} - {h["type"]} {h["filename"]} → {h["result"]} ({h["confidence"]*100:.1f}%)</div>', unsafe_allow_html=True)
