@@ -6,9 +6,7 @@ from datetime import datetime
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras import layers, models
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import matplotlib.pyplot as plt
 
 # -----------------------
 # Config Streamlit
@@ -90,30 +88,6 @@ if "history" not in st.session_state:
     st.session_state.history = []
 
 # -----------------------
-# Email (SMTP)
-# -----------------------
-def send_email_alert(subject, body, recipient):
-    try:
-        sender = os.environ.get("MAIL_USERNAME")
-        password = os.environ.get("MAIL_PASSWORD")
-        smtp_server = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
-        smtp_port = int(os.environ.get("MAIL_PORT", 587))
-        
-        msg = MIMEMultipart()
-        msg['From'] = sender
-        msg['To'] = recipient
-        msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain'))
-        
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-        server.login(sender, password)
-        server.send_message(msg)
-        server.quit()
-    except Exception as e:
-        st.warning(f"Impossible d'envoyer l'email: {e}")
-
-# -----------------------
 # CSS moderne
 # -----------------------
 st.markdown("""
@@ -125,6 +99,7 @@ st.markdown("""
     padding: 25px;
     border-radius: 10px;
     margin-bottom: 20px;
+    box-shadow: 0px 4px 10px rgba(0,0,0,0.2);
 }
 .upload-area {
     border: 2px dashed #1E3A8A;
@@ -142,6 +117,7 @@ st.markdown("""
     padding: 15px;
     border-radius: 10px;
     margin-bottom: 10px;
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
 }
 .alert-red { background-color: #FF4B4B; color:white; padding:10px; border-radius:10px; }
 .alert-blue { background-color: #1E90FF; color:white; padding:10px; border-radius:10px; }
@@ -157,13 +133,15 @@ st.markdown('<div class="header"><h1>SmartBin</h1><p>Gestion intelligente des po
 # -----------------------
 # Upload files
 # -----------------------
-uploaded_files = st.file_uploader("Glisser / Déposer vos fichiers ici ou cliquer pour sélectionner", 
-                                  accept_multiple_files=True, type=["jpg","jpeg","png","mp4"], key="uploader")
+uploaded_files = st.file_uploader(
+    "Glisser / Déposer vos fichiers ici ou cliquer pour sélectionner", 
+    accept_multiple_files=True, type=["jpg","jpeg","png","mp4"], key="uploader"
+)
 
 col1, col2, col3 = st.columns(3)
-predict_btn = col1.button("Prédire")
-reset_btn = col2.button("Réinitialiser")
-download_btn = col3.button("Télécharger le modèle")
+predict_btn = col1.button("Prédire", key="predict")
+reset_btn = col2.button("Réinitialiser", key="reset")
+download_btn = col3.button("Télécharger le modèle", key="download")
 
 recipient_email = st.text_input("Email pour alertes (poubelle pleine)", "")
 
@@ -214,7 +192,7 @@ if predict_btn and uploaded_files:
         })
 
 # -----------------------
-# Statistiques
+# Statistiques avec graphique
 # -----------------------
 if st.session_state.history:
     total = len(st.session_state.history)
@@ -222,10 +200,18 @@ if st.session_state.history:
     vides = total - pleines
 
     st.subheader("Statistiques")
-    st.write(f"Total: {total}")
-    st.write(f"Pleines: {pleines}")
-    st.write(f"Vides: {vides}")
+    col1, col2 = st.columns(2)
+    
+    # Graphique circulaire
+    fig, ax = plt.subplots()
+    ax.pie([pleines, vides], labels=["Pleines","Vides"], autopct='%1.1f%%', colors=["#FF4B4B","#1E90FF"])
+    ax.set_title("Répartition des poubelles")
+    col1.pyplot(fig)
 
+    # Graphique barre
+    col2.bar_chart({"Total": [total], "Pleines": [pleines], "Vides": [vides]})
+
+    # Historique
     st.subheader("Historique des prédictions")
     for h in st.session_state.history[::-1]:
         color = "#FF4B4B" if h["result"]=="poubelle_pleine" else "#1E90FF"
