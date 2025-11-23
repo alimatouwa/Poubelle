@@ -10,6 +10,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import pandas as pd
+import time
 
 # -----------------------
 # Config Streamlit
@@ -114,7 +115,7 @@ def send_email_alert(subject, body, recipient):
         st.warning(f"Impossible d'envoyer l'email: {e}")
 
 # -----------------------
-# CSS moderne site web
+# CSS moderne + animations
 # -----------------------
 st.markdown("""
 <style>
@@ -128,7 +129,7 @@ st.markdown("""
     font-family: 'Arial', sans-serif;
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
-/* Boutons et cards */
+/* Cards */
 .card {
     background-color: #ffffff;
     border-radius: 15px;
@@ -136,10 +137,11 @@ st.markdown("""
     margin: 15px 0;
     text-align: center;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
 }
+.card:hover { transform: translateY(-5px);}
 .alert-red { background-color: #FF4B4B; color: white; padding: 12px; border-radius: 10px; font-weight: bold; margin: 10px 0; text-align:center;}
 .alert-green { background-color: #4BB543; color: white; padding: 12px; border-radius: 10px; font-weight: bold; margin: 10px 0; text-align:center;}
-/* Footer */
 .footer {
     text-align: center;
     padding: 15px;
@@ -148,13 +150,18 @@ st.markdown("""
     color: #555;
     font-size: 14px;
 }
+.spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------
-# Navigation style Flask
+# Navigation style Flask avec icônes
 # -----------------------
-tabs = ["Accueil", "Upload", "Historique", "Statistiques", "Télécharger modèle"]
+tabs = ["🏠 Accueil", "📤 Upload", "📝 Historique", "📊 Statistiques", "⬇️ Télécharger modèle"]
 active_tab = st.tabs(tabs)
 tab_accueil, tab_upload, tab_hist, tab_stats, tab_model = active_tab
 
@@ -166,7 +173,7 @@ with tab_accueil:
     st.write("Bienvenue sur l'application SmartBin Poubelles. Utilisez les onglets pour naviguer entre les sections.")
 
 # -----------------------
-# Upload
+# Upload avec spinner
 # -----------------------
 with tab_upload:
     st.subheader("📤 Upload images ou vidéos")
@@ -181,35 +188,37 @@ with tab_upload:
             with open(path,"wb") as out:
                 out.write(f.read())
             
-            if f.type.startswith("image"):
-                cls, conf = predict_image_file(path)
-                ftype = "Image"
-                st.image(path, caption=f.name, use_column_width=True)
-            elif f.type.startswith("video"):
-                cls, conf = predict_video_file(path)
-                ftype = "Vidéo"
-                st.video(path)
-            else:
-                continue
+            with st.spinner(f"Analyse de {f.name} ..."):
+                time.sleep(0.5)  # effet de chargement
+                if f.type.startswith("image"):
+                    cls, conf = predict_image_file(path)
+                    ftype = "Image"
+                    st.image(path, caption=f.name, use_column_width=True)
+                elif f.type.startswith("video"):
+                    cls, conf = predict_video_file(path)
+                    ftype = "Vidéo"
+                    st.video(path)
+                else:
+                    continue
 
-            st.session_state.history.append({
-                "filename": f.name,
-                "type": ftype,
-                "result": cls,
-                "confidence": conf,
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            })
+                st.session_state.history.append({
+                    "filename": f.name,
+                    "type": ftype,
+                    "result": cls,
+                    "confidence": conf,
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
 
-            if cls == "poubelle_pleine":
-                st.markdown(f'<div class="alert-red">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
-                if recipient_email:
-                    send_email_alert(
-                        "Alerte SmartBin: Poubelle pleine",
-                        f"La poubelle est pleine pour le fichier {f.name} (confiance {conf*100:.1f}%)",
-                        recipient_email
-                    )
-            else:
-                st.markdown(f'<div class="alert-green">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
+                if cls == "poubelle_pleine":
+                    st.markdown(f'<div class="alert-red">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
+                    if recipient_email:
+                        send_email_alert(
+                            "Alerte SmartBin: Poubelle pleine",
+                            f"La poubelle est pleine pour le fichier {f.name} (confiance {conf*100:.1f}%)",
+                            recipient_email
+                        )
+                else:
+                    st.markdown(f'<div class="alert-green">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
 
 # -----------------------
 # Historique
