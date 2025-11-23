@@ -11,7 +11,7 @@ from tensorflow.keras import layers, models
 # Config Streamlit
 # -----------------------
 st.set_page_config(
-    page_title="SmartBin",
+    page_title="Poubelle Detection",
     page_icon="🗑️",
     layout="wide"
 )
@@ -91,28 +91,30 @@ if "history" not in st.session_state:
 # -----------------------
 st.markdown("""
 <style>
-.header { text-align: center; background-color: #1E3A8A; color: white; padding: 25px; border-radius: 10px; margin-bottom: 20px; }
-.upload-area { border: 2px dashed #1E3A8A; border-radius: 10px; padding: 40px; text-align: center; margin-bottom: 20px; background-color: #f0f4ff; }
-.card { background-color: #f0f4ff; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
-.alert-red { background-color: #FF4B4B; color:white; padding:10px; border-radius:10px; }
-.alert-blue { background-color: #1E90FF; color:white; padding:10px; border-radius:10px; }
-.footer { text-align:center; color:gray; margin-top:20px; }
+.header { text-align: center; background-color: #1E40AF; color: white; padding: 30px; border-radius: 10px; margin-bottom: 20px; }
+.upload-area { border: 2px dashed #1E40AF; border-radius: 10px; padding: 50px; text-align: center; margin-bottom: 20px; background-color: #eff6ff; font-size: 18px; color: #1E3A8A;}
+.button-row button { margin-right: 10px; }
+.card { background-color: #eff6ff; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
+.alert-red { background-color: #EF4444; color:white; padding:10px; border-radius:10px; }
+.alert-blue { background-color: #3B82F6; color:white; padding:10px; border-radius:10px; }
+.footer { text-align:center; color:gray; margin-top:30px; }
 </style>
 """, unsafe_allow_html=True)
 
 # Header
-st.markdown('<div class="header"><h1>SmartBin</h1><p>Gestion intelligente des poubelles</p></div>', unsafe_allow_html=True)
+st.markdown('<div class="header"><h1>Poubelle Detection</h1><p>Gestion intelligente des poubelles</p></div>', unsafe_allow_html=True)
 
-# Upload files
+# Upload area
 uploaded_files = st.file_uploader(
     "Glisser / Déposer vos fichiers ici ou cliquer pour sélectionner", 
     accept_multiple_files=True, type=["jpg","jpeg","png","mp4"], key="uploader"
 )
 
-col1, col2, col3 = st.columns(3)
-predict_btn = col1.button("Prédire", key="predict")
-reset_btn = col2.button("Réinitialiser", key="reset")
-download_btn = col3.button("Télécharger le modèle", key="download")
+# Boutons
+col1, col2, col3 = st.columns([1,1,1])
+predict_btn = col1.button("Prédire")
+reset_btn = col2.button("Réinitialiser")
+download_btn = col3.button("Télécharger le modèle")
 
 recipient_email = st.text_input("Email pour alertes (poubelle pleine)", "")
 
@@ -126,11 +128,11 @@ if download_btn:
     if os.path.exists(MODEL_FILENAME):
         with open(MODEL_FILENAME, "rb") as f:
             model_bytes = f.read()
-        st.download_button("Télécharger le modèle", data=model_bytes, file_name="model_MobileNetV2.h5")
+        st.download_button("Télécharger le modèle", data=model_bytes, file_name="model_Poubelle.h5")
     else:
         st.warning("Le fichier modèle n'existe pas.")
 
-# Traitement Prédire
+# Prédire
 if predict_btn and uploaded_files:
     for f in uploaded_files:
         path = os.path.join(UPLOAD_FOLDER, f.name)
@@ -156,7 +158,7 @@ if predict_btn and uploaded_files:
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
 
-# Statistiques avec st.metric et st.bar_chart
+# Statistiques
 if st.session_state.history:
     total = len(st.session_state.history)
     pleines = sum(1 for h in st.session_state.history if h["result"]=="poubelle_pleine")
@@ -168,13 +170,12 @@ if st.session_state.history:
     col2.metric("Pleines", pleines)
     col3.metric("Vides", vides)
 
-    # Graphique barre simple
     st.bar_chart({"Pleines": [pleines], "Vides": [vides]})
 
     # Historique
     st.subheader("Historique des prédictions")
     for h in st.session_state.history[::-1]:
-        color = "#FF4B4B" if h["result"]=="poubelle_pleine" else "#1E90FF"
+        color = "#EF4444" if h["result"]=="poubelle_pleine" else "#3B82F6"
         st.markdown(f"""
         <div class="card" style="border-left:5px solid {color};">
             <b>{h['filename']}</b><br>
@@ -186,4 +187,4 @@ if st.session_state.history:
         """, unsafe_allow_html=True)
 
 # Footer
-st.markdown('<div class="footer">SmartBin © 2025</div>', unsafe_allow_html=True)
+st.markdown('<div class="footer">Poubelle Detection © 2025</div>', unsafe_allow_html=True)
