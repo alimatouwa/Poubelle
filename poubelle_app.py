@@ -93,16 +93,17 @@ st.markdown("""
 <style>
 .header { text-align: center; background-color: #1E40AF; color: white; padding: 30px; border-radius: 10px; margin-bottom: 20px; }
 .upload-area { border: 2px dashed #1E40AF; border-radius: 10px; padding: 50px; text-align: center; margin-bottom: 20px; background-color: #eff6ff; font-size: 18px; color: #1E3A8A;}
-.button-row button { margin-right: 10px; }
-.card { background-color: #eff6ff; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
+.card { background-color: #eff6ff; padding: 15px; border-radius: 10px; margin-bottom: 10px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1);}
 .alert-red { background-color: #EF4444; color:white; padding:10px; border-radius:10px; }
 .alert-blue { background-color: #3B82F6; color:white; padding:10px; border-radius:10px; }
 .footer { text-align:center; color:gray; margin-top:30px; }
+.button-style { background-color:#1E40AF; color:white; border:none; padding:10px 20px; border-radius:5px; font-weight:bold; cursor:pointer; margin-right:5px;}
+.button-style:hover { background-color:#2563EB; }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------
-# Sidebar pour navigation
+# Sidebar Navigation
 # -----------------------
 page = st.sidebar.selectbox("Navigation", ["Accueil", "Statistiques", "Télécharger le modèle"])
 
@@ -118,8 +119,8 @@ if page == "Accueil":
     )
 
     col1, col2 = st.columns([1,1])
-    predict_btn = col1.button("Prédire")
-    reset_btn = col2.button("Réinitialiser")
+    predict_btn = col1.button("🖼️ Prédire")
+    reset_btn = col2.button("♻️ Réinitialiser")
 
     recipient_email = st.text_input("Email pour alertes (poubelle pleine)", "")
 
@@ -136,11 +137,9 @@ if page == "Accueil":
             if f.type.startswith("image"):
                 cls, conf = predict_image_file(path)
                 ftype = "image"
-                st.image(path, caption=f.name, use_column_width=True)
             elif f.type.startswith("video"):
                 cls, conf = predict_video_file(path)
                 ftype = "video"
-                st.video(path)
             else:
                 continue
 
@@ -152,11 +151,30 @@ if page == "Accueil":
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
 
+            # Affichage côte à côte
+            col_img, col_res = st.columns([2,3])
+            with col_img:
+                if ftype=="image":
+                    st.image(path, use_column_width=True)
+                else:
+                    st.video(path)
+            with col_res:
+                color = "#EF4444" if cls=="poubelle_pleine" else "#3B82F6"
+                st.markdown(f"""
+                <div class="card" style="border-left:5px solid {color};">
+                    <b>{f.name}</b><br>
+                    Résultat: {cls}<br>
+                    Confiance: {conf*100:.2f}%<br>
+                    Type: {ftype}<br>
+                    Fichier: {f.name}
+                </div>
+                """, unsafe_allow_html=True)
+
 # -----------------------
 # Page Statistiques
 # -----------------------
 elif page == "Statistiques":
-    st.subheader("Statistiques générales")
+    st.subheader("📊 Statistiques")
     if st.session_state.history:
         total = len(st.session_state.history)
         pleines = sum(1 for h in st.session_state.history if h["result"]=="poubelle_pleine")
@@ -188,11 +206,11 @@ elif page == "Statistiques":
 # Page Télécharger le modèle
 # -----------------------
 elif page == "Télécharger le modèle":
-    st.subheader("Télécharger le modèle")
+    st.subheader("⬇️ Télécharger le modèle")
     if os.path.exists(MODEL_FILENAME):
         with open(MODEL_FILENAME, "rb") as f:
             model_bytes = f.read()
-        st.download_button("Télécharger le modèle", data=model_bytes, file_name="model_Poubelle.h5")
+        st.download_button("💾 Télécharger le modèle", data=model_bytes, file_name="model_Poubelle.h5")
     else:
         st.warning("Le fichier modèle n'existe pas.")
 
