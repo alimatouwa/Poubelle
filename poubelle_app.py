@@ -147,6 +147,11 @@ st.markdown("""
     border-radius: 10px;
     font-weight: bold;
 }
+.thumbnail {
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    margin: 5px;
+}
 </style>
 <div class="header">
     <h1>🗑️ SmartBin Pro</h1>
@@ -187,7 +192,8 @@ with col1:
                 "type": ftype,
                 "result": cls,
                 "confidence": conf,
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "path": path
             })
 
             if cls == "poubelle_pleine":
@@ -232,7 +238,6 @@ with col2:
         st.metric("Poubelles Pleines", pleines)
         st.metric("Poubelles Vides", vides)
 
-        # Graphique simple avec st.bar_chart
         stats_df = pd.DataFrame({
             "Type": ["Poubelles Pleines", "Poubelles Vides"],
             "Nombre": [pleines, vides]
@@ -240,8 +245,16 @@ with col2:
         stats_df = stats_df.set_index("Type")
         st.bar_chart(stats_df)
 
-        # Historique détaillé
-        st.subheader("📝 Historique")
-        for h in st.session_state.history[::-1]:
-            color = "#FF4500" if h["result"]=="poubelle_pleine" else "#00BFFF"
-            st.markdown(f'<div style="background-color:{color};color:white;padding:5px;border-radius:5px;margin-bottom:3px;">{h["timestamp"]} - {h["type"]} {h["filename"]} → {h["result"]} ({h["confidence"]*100:.1f}%)</div>', unsafe_allow_html=True)
+# -----------------------
+# Section "Derniers uploads"
+# -----------------------
+st.subheader("🖼️ Derniers uploads")
+if st.session_state.history:
+    imgs = [h for h in st.session_state.history if h["type"]=="Image"]
+    if imgs:
+        n_cols = 3
+        rows = [imgs[i:i+n_cols] for i in range(0, len(imgs), n_cols)]
+        for row in rows:
+            cols = st.columns(n_cols)
+            for col, h in zip(cols, row):
+                col.image(h["path"], caption=f'{h["filename"]}\n{h["result"]} ({h["confidence"]*100:.1f}%)', use_column_width=True)
