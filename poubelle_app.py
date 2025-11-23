@@ -130,7 +130,7 @@ st.markdown("""
     background-color: #f0f4ff;
     border-radius: 10px;
     padding: 15px;
-    text-align: center;
+    margin-bottom: 10px;
     box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
 }
 .alert-red {
@@ -155,14 +155,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------
-# Layout en colonnes
+# Layout principal
 # -----------------------
 col_left, col_right = st.columns([2,1])
 
 with col_left:
     st.subheader("📤 Upload images ou vidéos")
     uploaded_files = st.file_uploader(
-        "Sélectionnez des fichiers", accept_multiple_files=True, type=["jpg","jpeg","png","mp4"]
+        "Sélectionnez vos fichiers", accept_multiple_files=True, type=["jpg","jpeg","png","mp4"]
     )
     recipient_email = st.text_input("Email pour alertes (poubelle pleine)", "")
 
@@ -200,6 +200,7 @@ if uploaded_files:
         else:
             continue
 
+        # Ajout dans l'historique
         st.session_state.history.append({
             "filename": f.name,
             "type": ftype,
@@ -208,31 +209,41 @@ if uploaded_files:
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
 
-        if cls == "poubelle_pleine":
-            st.markdown(f'<div class="alert-red">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
-            if recipient_email:
-                send_email_alert(
-                    "Alerte SmartBin: Poubelle pleine",
-                    f"La poubelle est pleine pour le fichier {f.name} (confiance {conf*100:.1f}%)",
-                    recipient_email
-                )
-        else:
-            st.markdown(f'<div class="alert-blue">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
+        # Affichage dans card
+        color_class = "alert-red" if cls=="poubelle_pleine" else "alert-blue"
+        st.markdown(f'<div class="card {color_class}">{ftype} {f.name} → {cls} ({conf*100:.1f}%)</div>', unsafe_allow_html=True)
+
+        # Envoi email si poubelle pleine
+        if cls=="poubelle_pleine" and recipient_email:
+            send_email_alert(
+                "Alerte SmartBin: Poubelle pleine",
+                f"La poubelle est pleine pour le fichier {f.name} (confiance {conf*100:.1f}%)",
+                recipient_email
+            )
 
 # -----------------------
-# Statistiques et Historique
+# Statistiques avec graphes simples
 # -----------------------
 if st.session_state.history:
-    st.subheader("📊 Statistiques")
     total = len(st.session_state.history)
     pleines = sum(1 for h in st.session_state.history if h["result"]=="poubelle_pleine")
     vides = total - pleines
 
-    st.metric("Total fichiers", total)
-    st.metric("Poubelles Pleines", pleines)
-    st.metric("Poubelles Vides", vides)
+    st.subheader("📊 Statistiques")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total fichiers", total)
+    col2.metric("Poubelles Pleines", pleines)
+    col3.metric("Poubelles Vides", vides)
 
-    st.subheader("📝 Historique")
+    st.subheader("📈 Répartition")
+    pleines_ratio = pleines/total*100 if total>0 else 0
+    vides_ratio = vides/total*100 if total>0 else 0
+    st.progress(pleines_ratio)
+    st.text(f"Poubelles Pleines: {pleines} ({pleines_ratio:.1f}%)")
+    st.progress(vides_ratio)
+    st.text(f"Poubelles Vides: {vides} ({vides_ratio:.1f}%)")
+
+    st.subheader("📝 Historique détaillé")
     for h in st.session_state.history[::-1]:
         color = "#FF4B4B" if h["result"]=="poubelle_pleine" else "#1E90FF"
-        st.markdown(f'<div style="background-color:{color};color:white;padding:5px;border-radius:5px;margin-bottom:3px;">{h["timestamp"]} - {h["type"]} {h["filename"]} → {h["result"]} ({h["confidence"]*100:.1f}%)</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="background-color:{color};color:white;padding:8px;border-radius:8px;margin-bottom:5px;">{h["timestamp"]} - {h["type"]} {h["filename"]} → {h["result"]} ({h["confidence"]*100:.1f}%)</div>', unsafe_allow_html=True)
